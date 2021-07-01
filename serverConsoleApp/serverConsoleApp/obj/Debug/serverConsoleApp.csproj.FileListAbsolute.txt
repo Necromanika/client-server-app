@@ -1,0 +1,7 @@
+D:\VisualSTProjects\serverConsoleApp\serverConsoleApp\bin\Debug\serverConsoleApp.exe.config
+D:\VisualSTProjects\serverConsoleApp\serverConsoleApp\bin\Debug\serverConsoleApp.exe
+D:\VisualSTProjects\serverConsoleApp\serverConsoleApp\bin\Debug\serverConsoleApp.pdb
+D:\VisualSTProjects\serverConsoleApp\serverConsoleApp\obj\Debug\serverConsoleApp.csprojAssemblyReference.cache
+D:\VisualSTProjects\serverConsoleApp\serverConsoleApp\obj\Debug\serverConsoleApp.csproj.CoreCompileInputs.cache
+D:\VisualSTProjects\serverConsoleApp\serverConsoleApp\obj\Debug\serverConsoleApp.exe
+D:\VisualSTProjects\serverConsoleApp\serverConsoleApp\obj\Debug\serverConsoleApp.pdb

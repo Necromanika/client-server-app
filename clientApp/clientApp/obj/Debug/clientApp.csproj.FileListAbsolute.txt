@@ -1,0 +1,10 @@
+D:\VisualSTProjects\clientApp\clientApp\obj\Debug\clientApp.csprojAssemblyReference.cache
+D:\VisualSTProjects\clientApp\clientApp\obj\Debug\clientApp.Form1.resources
+D:\VisualSTProjects\clientApp\clientApp\obj\Debug\clientApp.Properties.Resources.resources
+D:\VisualSTProjects\clientApp\clientApp\obj\Debug\clientApp.csproj.GenerateResource.cache
+D:\VisualSTProjects\clientApp\clientApp\obj\Debug\clientApp.csproj.CoreCompileInputs.cache
+D:\VisualSTProjects\clientApp\clientApp\bin\Debug\clientApp.exe.config
+D:\VisualSTProjects\clientApp\clientApp\bin\Debug\clientApp.exe
+D:\VisualSTProjects\clientApp\clientApp\bin\Debug\clientApp.pdb
+D:\VisualSTProjects\clientApp\clientApp\obj\Debug\clientApp.exe
+D:\VisualSTProjects\clientApp\clientApp\obj\Debug\clientApp.pdb
