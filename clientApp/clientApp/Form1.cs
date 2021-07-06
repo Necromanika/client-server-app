@@ -107,10 +107,15 @@ namespace clientApp
                 int bytes = _stream.Read(dataResponse, 0, dataResponse.Length); // считываем полученные данные
                 new Thread(() =>
                 {
-                    response += Encoding.UTF8.GetString(dataResponse, 0, bytes);
-                    textBox3.Invoke((MethodInvoker)(() => textBox3.AppendText("\n" + response.ToString()))); // обновляем UI
-                    textBox2.Invoke((MethodInvoker)(() => textBox2.Text = ""));
-                    textBox2.Invoke((MethodInvoker)(() => textBox2.Focus()));
+                    response = Encoding.UTF8.GetString(dataResponse, 2, bytes-2);
+                    if (bytes != Convert.ToInt32(dataResponse[0]) || bytes < 2) // проверка полученных данных
+                        return;
+                    if (dataResponse[1] == 0x01)
+                    {
+                        textBox3.Invoke((MethodInvoker)(() => textBox3.AppendText("\n" + response.ToString()))); // обновляем UI
+                        textBox2.Invoke((MethodInvoker)(() => textBox2.Text = ""));
+                        textBox2.Invoke((MethodInvoker)(() => textBox2.Focus()));
+                    }
                 }).Start();
             }
 

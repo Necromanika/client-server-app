@@ -4,6 +4,7 @@ using System.Text;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Linq;
 
 namespace serverConsoleApp
 {
@@ -39,6 +40,7 @@ namespace serverConsoleApp
             }
         }
 
+        
         private static void connection(TcpClient client, List<TcpClient> clients)
         {
             lock (locker)
@@ -54,12 +56,12 @@ namespace serverConsoleApp
                 }
             }
             Console.WriteLine("Подключен клиент № {0}", (clients.IndexOf(client) + 1).ToString()); // логирунм
-
-
+            
             using (NetworkStream stream = client.GetStream())// получаем поток для чтения и записи
             {
                 byte[] data = new byte[256];
                 string read;
+                byte[] mess;
                 try
                 {
                     while (true)
@@ -77,15 +79,15 @@ namespace serverConsoleApp
                         {
                             Console.WriteLine("Клиент №" + (clients.IndexOf(client) + 1).ToString() + ": " + read); // логируем
                             byte[] dataResponse = Encoding.UTF8.GetBytes(read);
-                            stream.Write(dataResponse, 0, dataResponse.Length); // отправляем обратно данные
+                            mess = new byte[] { Convert.ToByte(dataResponse.Length + 2), 0x01 }; // сообщение на отправку 1байт - размер, 2байт - управляющий байт
+                            mess = mess.Concat(dataResponse).ToArray();
+                            stream.Write(mess, 0, mess.Length); // отправляем обратно данные
                         }
                     }
                 }
                 catch(Exception ex)
                 {
                     Console.WriteLine(ex.Message);
-                    Console.ReadLine();
-                    return;
                 }
                 finally
                 {
