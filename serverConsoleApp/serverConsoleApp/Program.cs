@@ -4,16 +4,22 @@ using System.Text;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Linq;
+using System.IO;
 
 namespace serverConsoleApp
 {
     class Program
     {
-        const int port = 80; // порт для прослушивания подключений
-        static AutoResetEvent waitHandler = new AutoResetEvent(true); // очередь
+        const int port = 13031; // порт для прослушивания подключений
+        static TimerCallback tcb = new TimerCallback(CurrentTime);
+        static Timer timer;
+        static Queue<byte[]> messageQ = new Queue<byte[]>(); // очередь сообщений
+        static int clients=0; // четчик клиентов
+        static AutoResetEvent waitHandler = new AutoResetEvent(false); // событие-сигнал
+        static bool writeOn = false;
         static void Main(string[] args)
         {
-            List<TcpClient> clients = new List<TcpClient>(); // список клиентов
             TcpListener server = null; // сервер
             try
             {
@@ -24,7 +30,7 @@ namespace serverConsoleApp
                 while (true)
                 {
                     TcpClient client = server.AcceptTcpClient();// получаем входящее подключение
-                    Thread clientConn = new Thread(() => connection(client, clients)); // создаем новый поток
+                    Thread clientConn = new Thread(() => Connection(client)); // создаем новый поток
                     clientConn.Start();
                 }
             }
@@ -34,54 +40,108 @@ namespace serverConsoleApp
             }
             finally
             {
-                server.Stop(); // останавливаем
+                if(server!=null)
+                    server.Stop(); // останавливаем
             }
         }
 
-        private static void connection(TcpClient client, List<TcpClient> clients)
+        private static void AddInQ(byte[] message)
         {
-            if (clients.Contains(null)) // если есть пустое место в списке, помещаем туда нового клиента
-            {
-                clients.Insert(clients.IndexOf(null), client);
-                clients.Remove(null);
-            }
-            else
-                clients.Add(client);
-            Console.WriteLine("Подключен клиент № " + (clients.IndexOf(client) + 1).ToString()); // логирунм
+            messageQ.Enqueue(message); // добавляем сообщение в очередь
+            waitHandler.Set(); // сигнал
+        }
 
-            NetworkStream stream = client.GetStream();// получаем поток для чтения и записи
-
-            while (true)
+        private static void CurrentTime(object obj)
+        {
+            byte[] time = Encoding.UTF8.GetBytes(DateTime.Now.TimeOfDay.ToString("hh\\:mm\\:ss"));
+            byte[] mess = new byte[] { 0x01, Convert.ToByte(time.Length) }.Concat(time).ToArray();
+            AddInQ(mess);
+        }
+        private static void Connection(TcpClient client)
+        {
+            int clientNumber = Interlocked.Increment(ref clients);
+            Console.WriteLine("Подключен клиент № {0}", clientNumber); // логирунм
+            
+            using (NetworkStream stream = client.GetStream())// получаем поток для чтения и записи
             {
-                byte[] data = new byte[256];
-                string read = "";
+                Thread writeThread = new Thread(() => WriteData(stream)); // создаем новый поток отправки
+                writeOn = true;
+                writeThread.Start();
+                timer = new Timer(tcb, stream, 0, 10000);
+                byte[] data = new byte[255];
+                int size;
+                string read;
+                byte[] mess;
+                byte[] dataResponse;
                 try
                 {
-                    int bytes = stream.Read(data, 0, data.Length);// читаем данные
-                    waitHandler.WaitOne(); // ставим в очередь
-                    read += Encoding.UTF8.GetString(data, 0, bytes);
+                    while (true)
+                    {
+                        stream.ReadAll(data, 0, 1);// читаем управляющий бит
+                        byte control = data[0];
+
+                        if (control == 0x0f) // если пришло сообщение об отключении клиента (0x0f) отключаем его
+                        {
+                            break;
+                        }
+                        if (control == 0x01)
+                        {
+                            stream.ReadAll(data, 0, 1); //читаем размер сообщения
+                            size = Convert.ToInt32(data[0]);
+                            stream.ReadAll(data, 0, size); // читаем сообщение
+                            read = Encoding.UTF8.GetString(data, 0, size);
+
+                            Console.WriteLine("Клиент № {0}: {1}", clientNumber, read); // логируем
+                            dataResponse = Encoding.UTF8.GetBytes(read);
+                            mess = new byte[] { 0x01, Convert.ToByte(dataResponse.Length) }.Concat(dataResponse).ToArray(); // сообщение на отправку 1байт - управляющий байт, 2байт - размер
+                            AddInQ(mess); // ставим в очередь
+                        }
+                    }
                 }
-                catch
+                catch(Exception ex)
                 {
-                    return;
+                    Console.WriteLine(ex.Message);
                 }
-                if (read == "stop_conn") // если пришло сообщение об отключении клиента отключаем его
+                finally
                 {
+                    writeOn = false;
+                    waitHandler.Set();
+                    timer.Dispose();
                     stream.Close();// закрываем поток
                     client.Close();// закрываем подключение
-                    Console.WriteLine("Клиент № " + (clients.IndexOf(client) + 1).ToString() + " отключен."); // логируем
-                    clients.Insert(clients.IndexOf(client), null); // оставляем пустое место в списке
-                    clients.Remove(client);
-                    waitHandler.Set();
-                    break;
+                    Console.WriteLine("Клиент № {0} отключен.", clientNumber); // логируем
                 }
-
-                Console.WriteLine("Клиент №" + (clients.IndexOf(client) + 1).ToString() + ": " + read); // логируем
-                byte[] dataResponse = Encoding.UTF8.GetBytes(read);
-                stream.Write(dataResponse, 0, dataResponse.Length); // отправляем обратно данные
-                waitHandler.Set(); // освобождаем очередь
             }
+        }
 
+        private static void WriteData(NetworkStream ns)
+        {
+            do
+            {
+                waitHandler.WaitOne();
+                if (messageQ.Count > 0) // если есть сообщения в очереди
+                {
+                    byte[] mess = messageQ.Dequeue();
+                    ns.Write(mess, 0, mess.Length); // пишем в сокет
+                }
+            } while (writeOn);
+        }
+    }
+
+    static class StreamExtension
+    {
+        public static int ReadAll(this NetworkStream stream, byte[] buffer, int offset, int size)
+        {
+            int bytes;
+            int bytesRead = 0;
+            do
+            {
+                bytes = stream.Read(buffer, offset + bytesRead, size - bytesRead);
+                if (bytes == 0)
+                    throw new IOException();
+                bytesRead += bytes;
+            } while (bytesRead < size);
+            return bytesRead;
         }
     }
 }
